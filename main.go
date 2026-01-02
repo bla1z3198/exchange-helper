@@ -32,10 +32,10 @@ type SeaTheme struct{}
 
 func (s SeaTheme) Color(n fyne.ThemeColorName, v fyne.ThemeVariant) color.Color {
 	colors := map[fyne.ThemeColorName]color.Color{
-		theme.ColorNamePrimary:    color.RGBA{64, 224, 208, 255},  // Аквамарин
-		theme.ColorNameBackground: color.RGBA{10, 40, 70, 255},    // Ночное море
-		theme.ColorNameForeground: color.RGBA{230, 245, 255, 255}, // Пена
-		theme.ColorNameButton:     color.RGBA{0, 105, 148, 255},   // Глубина
+		theme.ColorNamePrimary:    color.RGBA{64, 224, 208, 255}, 
+		theme.ColorNameBackground: color.RGBA{10, 40, 70, 255},    
+		theme.ColorNameForeground: color.RGBA{230, 245, 255, 255}, 
+		theme.ColorNameButton:     color.RGBA{0, 105, 148, 255},   
 	}
 	if c, ok := colors[n]; ok {
 		return c
