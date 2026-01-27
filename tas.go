@@ -3,8 +3,11 @@ package main
 import (
 	"embed"
 	"encoding/json"
+	"fmt"
 	"image/color"
 	"math"
+	"os"
+	"strconv"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
@@ -14,6 +17,9 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
+//go:embed *.json
+var jsonFiles embed.FS
+
 var ( // Global variables
 	mainWindow      fyne.Window
 	UnPassLabel     *canvas.Text
@@ -21,12 +27,14 @@ var ( // Global variables
 	PriceLabel      *canvas.Text
 	ListLabel       *canvas.Text
 	DealLabel       *canvas.Text
-	PairText        string
 	Red             color.Color
 	Green           color.Color
 	CandleColor     color.Color
+	PrevCandleColor color.Color
 	scroll          string
 	pass            string
+	PairText        string
+	priceText       string
 	pairs           []Pair
 	candles         []Candle
 	CandleY         float32
@@ -34,9 +42,8 @@ var ( // Global variables
 	WickSizeUp      float32
 	WickSizeDown    float32
 	CandleSize      float32
-	PrevCandleColor color.Color
 	CandleScale     float32
-	jsonFiles       embed.FS
+	pricePos        float32
 )
 
 type Pair struct { // Struct for JSON
@@ -117,8 +124,10 @@ func PairsList() { // Window for decide a pair
 	buttonContainer := container.NewVBox()
 
 	for idx := range pairs {
-		button := widget.NewButton(pairs[idx].Pair, func() {
-			PairText = pairs[idx].Pair
+		// Важно: создаем локальную копию переменной
+		pairIdx := idx
+		button := widget.NewButton(pairs[pairIdx].Pair, func() {
+			PairText = pairs[pairIdx].Pair
 			Deal()
 		})
 		buttonContainer.Add(button)
@@ -129,7 +138,12 @@ func PairsList() { // Window for decide a pair
 		buttonContainer,
 	)
 
-	mainWindow.SetContent(listBox)
+	mainWindow.SetContent(container.NewBorder(
+		listBox,
+		nil,
+		nil,
+		nil,
+	))
 }
 
 func Pass(append string) { // Password handle
@@ -153,11 +167,17 @@ func Pass(append string) { // Password handle
 func Deal() {
 	DealLabel.Text = PairText
 	RectContainer := container.NewWithoutLayout()
+
+	if len(candles) == 0 {
+		fmt.Println("Нет данных свечей!")
+		return
+	}
+
 	CandleY = candles[0].Open
 	WickY = candles[0].Low
 	CandleScale = 10
 
-	for i := range 10 {
+	for i := 0; i < len(candles) && i < 30; i++ {
 		WickSizeUp = candles[i].High - candles[i].Close
 		WickSizeDown = candles[i].Open - candles[i].Low
 		CandleSize = float32(math.Abs(float64(candles[i].Close - candles[i].Open)))
@@ -167,6 +187,7 @@ func Deal() {
 		} else {
 			CandleColor = Red
 		}
+
 		if PrevCandleColor == CandleColor {
 			if CandleColor == Green {
 				CandleY -= (CandleSize + CandleScale)
@@ -174,6 +195,7 @@ func Deal() {
 				CandleY += (CandleSize + CandleScale)
 			}
 		}
+
 		rect := canvas.NewRectangle(CandleColor)
 		rect.Resize(fyne.NewSize(11, CandleSize+CandleScale))
 		rect.Move(fyne.NewPos(float32(i*15), CandleY))
@@ -186,20 +208,45 @@ func Deal() {
 		wickDown.Resize(fyne.NewSize(1, WickSizeDown+10))
 		wickDown.Move(fyne.NewPos(float32(i*15)+5, CandleY+CandleScale+CandleSize))
 
+		price := canvas.NewRectangle(CandleColor)
+		price.Resize(fyne.NewSize(52, 4))
+		priceText = strconv.FormatFloat(float64(candles[i].Close), 'f', 6, 32)
+		priceLabel := canvas.NewText(strconv.FormatFloat(float64(candles[i].Close), 'f', 3, 32), CandleColor)
+
+		if CandleColor == Green {
+			pricePos = CandleY - WickSizeUp - CandleScale
+			priceLabel.Move(fyne.NewPos(float32(i*15)+5, pricePos-20))
+		} else {
+			pricePos = CandleY + WickSizeDown + CandleScale + CandleSize + 10
+			priceLabel.Move(fyne.NewPos(float32(i*15)+5, pricePos+20))
+		}
+		price.Move(fyne.NewPos(float32(i*15)+5, pricePos))
+
 		RectContainer.Add(wickUp)
 		RectContainer.Add(wickDown)
 		RectContainer.Add(rect)
 
+		if candles[i].Id == 1 || candles[i].Id == 2 {
+			RectContainer.Add(price)
+			RectContainer.Add(priceLabel)
+		}
+
 		PrevCandleColor = CandleColor
 	}
 
-	DealLabel.Move(fyne.NewPos(100, 100))
 	RectContainer.Add(container.NewCenter(canvas.NewText(scroll, color.NRGBA{0, 0, 0, 0})))
 	RectContainer.Resize(fyne.NewSize(400, 350))
 	RectContainer.Move(fyne.NewPos(0, 100))
 
+	back := widget.NewButton("Назад", func() { PairsList() })
+	exit := widget.NewButton("Выход", func() { os.Exit(0) })
+
 	mainWindow.SetContent(container.NewBorder(
-		(DealLabel),
+		container.NewGridWithColumns(3,
+			back,
+			container.NewCenter(DealLabel),
+			exit,
+		),
 		nil,
 		nil,
 		nil,
@@ -207,23 +254,23 @@ func Deal() {
 	))
 }
 
-func ActiveDeal() {
-
-}
-
 func Load() {
-	data, err := jsonFiles.ReadFile("json/pairs.json")
+	data, err := jsonFiles.ReadFile("pairs.json")
 	if err != nil {
+		fmt.Println("Ошибка чтения pairs.json:", err)
 		panic(err)
 	}
+
 	if err := json.Unmarshal(data, &pairs); err != nil {
 		panic(err)
 	}
 
-	data2, err := jsonFiles.ReadFile("json/1H.json")
+	data2, err := jsonFiles.ReadFile("1H.json")
 	if err != nil {
+		fmt.Println("Ошибка чтения 1H.json:", err)
 		panic(err)
 	}
+
 	if err := json.Unmarshal(data2, &candles); err != nil {
 		panic(err)
 	}
