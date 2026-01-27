@@ -3,7 +3,7 @@ GUI (fyne.io) for make deals on exchange (e.g. MOEX)
 
 # T&S (Jan 9/2026)
 New version of GUI
-➜ Fixed bugs
+➜ Fixed bugs \n
 ➜ Added new function (keypad for password)
 ➜ Added new function (candles graph)
 ![tas](https://github.com/user-attachments/assets/b0b5e773-8c82-4735-96e9-7d11175dfd00)
